@@ -1,28 +1,27 @@
 const COLUMNS_TO_ITERATE = 8;
 const DRIVERS_IN_ROW = 10;
-
 const POINTS_SHEET_OFFSETS = {row: 1, column: 2};
-const STANDINGS_URL = "https://ergast.com/api/f1/2022/driverStandings.json";
 const RESULT_URL = "https://ergast.com/api/f1/2022/results.json?limit=500";
 const SPRINT_URL = "https://ergast.com/api/f1/2022/sprint.json?limit=500";
 
 function calculatePoints()
 {  
-  const standingsResponse = UrlFetchApp.fetch(STANDINGS_URL);
-  const championship = JSON.parse(standingsResponse);
+  const raceResults = getRaceResultsWithSprintPoints();
 
-  //TODO: we could just use getRaceResultsWithSprintPoints()
-  const standings = championship.MRData.StandingsTable.StandingsLists[0].DriverStandings.reduce(
-    (accumulator, position) => ({ ...accumulator, [position.Driver.code]: parseInt(position.points) }), {});
+  const overallStandings = raceResults.reduce( (standingsAccumulator, race) => 
+    mergeObjects(
+      standingsAccumulator,
+      race
+    ), {});
 
-  const last5RaceStandings = getRaceResultsWithSprintPoints().slice(-5).reduce( (standingsAccumulator, race) => 
+  const last5RaceStandings = raceResults.slice(-5).reduce( (standingsAccumulator, race) => 
     mergeObjects(
       standingsAccumulator,
       race
     ), {});
 
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-  calculateColumnPoints(standings, sheets[0], 0);
+  calculateColumnPoints(overallStandings, sheets[0], 0);
   calculateColumnPoints(last5RaceStandings, sheets[0], 1);
 }
 
