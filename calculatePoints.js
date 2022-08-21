@@ -46,7 +46,7 @@ function calculateStandings(results) {
 function mergeRacePoints(race1, race2) {
   // Go through race2 entries and use race1 as initial value for accumulator
   return Object.entries(race2).reduce((acc, [driver, points]) => 
-    // If a driver is already in accumulator, sum the values together, otherwise add a new key for the driver
+    // If a driver is already in accumulator, sum the points together, otherwise add a new key for the driver
     ({ ...acc, [driver]: (acc[driver] || 0) + points })
     , { ...race1 });
 }
