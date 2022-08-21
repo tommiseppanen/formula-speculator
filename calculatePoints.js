@@ -7,22 +7,9 @@ const SPRINT_URL = "https://ergast.com/api/f1/2022/sprint.json?limit=500";
 function calculatePoints()
 {  
   const raceResults = getRaceResultsWithSprintPoints();
-
-  const overallStandings = raceResults.reduce( (standingsAccumulator, race) => 
-    mergeObjects(
-      standingsAccumulator,
-      race
-    ), {});
-
-  const last5RaceStandings = raceResults.slice(-5).reduce( (standingsAccumulator, race) => 
-    mergeObjects(
-      standingsAccumulator,
-      race
-    ), {});
-
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-  calculateColumnPoints(overallStandings, sheets[0], 0);
-  calculateColumnPoints(last5RaceStandings, sheets[0], 1);
+  calculateColumnPoints(combineResultsToStandingsObject(raceResults), sheets[0], 0);
+  calculateColumnPoints(combineResultsToStandingsObject(raceResults.slice(-5)), sheets[0], 1);
 }
 
 function getRaceResultsWithSprintPoints()
@@ -48,6 +35,11 @@ function getRaceResultsWithSprintPoints()
       }
   }
   return races;
+}
+
+function combineResultsToStandingsObject(results) {
+  return results.reduce( (standingsAccumulator, raceResult) => 
+    mergeObjects(standingsAccumulator,raceResult), {});
 }
 
 function mergeObjects(object1, object2) {
