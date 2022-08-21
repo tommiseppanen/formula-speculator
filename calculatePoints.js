@@ -6,23 +6,25 @@ const SPRINT_URL = "https://ergast.com/api/f1/2022/sprint.json?limit=500";
 
 function calculatePoints()
 {  
-  const raceResults = getRaceResultsWithSprintPoints();
+  const raceResults = getRaceResults();
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-  calculateColumnPoints(combineResultsToStandingsObject(raceResults), sheets[0], 0);
-  calculateColumnPoints(combineResultsToStandingsObject(raceResults.slice(-5)), sheets[0], 1);
+  calculatePointsFromStandings(calculateStandings(raceResults), sheets[0], 0);
+  calculatePointsFromStandings(calculateStandings(raceResults.slice(-5)), sheets[0], 1);
 }
 
-function getRaceResultsWithSprintPoints()
+function getRaceResults()
 {
-  const response = UrlFetchApp.fetch(RESULT_URL);
-  const standings = JSON.parse(response);
+  const raceResults = JSON.parse(UrlFetchApp.fetch(RESULT_URL));
+  const sprintResults = JSON.parse(UrlFetchApp.fetch(SPRINT_URL));
 
-  const sprintResponse = UrlFetchApp.fetch(SPRINT_URL);
-  const sprintResults = JSON.parse(sprintResponse);
-
-  let races = standings.MRData.RaceTable.Races.map(race => race.Results.reduce(
+  let racePoints = raceResults.MRData.RaceTable.Races.map(race => race.Results.reduce(
     (accumulator, result) => ({ ...accumulator, [result.Driver.code]: parseInt(result.points) }), {}));
 
+  MergeSprintPointsToRacePoints(racePoints, sprintResults);
+  return racePoints;
+}
+
+function MergeSprintPointsToRacePoints(races, sprintResults) {
   for (let sprintIndex = 0; sprintIndex < sprintResults.MRData.RaceTable.Races.length; sprintIndex++) 
   {
       for (let resultIndex = 0; resultIndex < sprintResults.MRData.RaceTable.Races[sprintIndex].SprintResults.length; resultIndex++)
@@ -34,34 +36,33 @@ function getRaceResultsWithSprintPoints()
         races[round][driver] += parseInt(sprintResults.MRData.RaceTable.Races[sprintIndex].SprintResults[resultIndex].points);
       }
   }
-  return races;
 }
 
-function combineResultsToStandingsObject(results) {
+function calculateStandings(results) {
   return results.reduce( (standingsAccumulator, raceResult) => 
-    mergeObjects(standingsAccumulator,raceResult), {});
+    mergeRacePoints(standingsAccumulator,raceResult), {});
 }
 
-function mergeObjects(object1, object2) {
-  // Go through object2 entries and use object1 as initial value for accumulator
-  return Object.entries(object2).reduce((acc, [key, value]) => 
-    // If a key is already in accumulator, sum the values together, otherwise add a new key
-    ({ ...acc, [key]: (acc[key] || 0) + value })
-    , { ...object1 });
+function mergeRacePoints(race1, race2) {
+  // Go through race2 entries and use race1 as initial value for accumulator
+  return Object.entries(race2).reduce((acc, [driver, points]) => 
+    // If a driver is already in accumulator, sum the values together, otherwise add a new key for the driver
+    ({ ...acc, [driver]: (acc[driver] || 0) + points })
+    , { ...race1 });
 }
 
-function calculateColumnPoints(standings, rowsSheet, outputRowOffset)
+function calculatePointsFromStandings(standings, rowsSheet, outputRowOffset)
 {
     for (let columnIndex = 0; columnIndex < COLUMNS_TO_ITERATE; columnIndex++) 
     {
       const drivers = rowsSheet.getRange(POINTS_SHEET_OFFSETS.row, POINTS_SHEET_OFFSETS.column+columnIndex,DRIVERS_IN_ROW).getValues();   
-      const racePoints = calculatePointsFromRace(standings, drivers);     
+      const racePoints = calculateWeightedSumOfPoints(standings, drivers);     
       const resultCell = rowsSheet.getRange(POINTS_SHEET_OFFSETS.row+DRIVERS_IN_ROW+outputRowOffset, POINTS_SHEET_OFFSETS.column+columnIndex);
       resultCell.setValue(racePoints);
     }
 }
 
-function calculatePointsFromRace(standings, drivers)
+function calculateWeightedSumOfPoints(standings, drivers)
 {
   let racePoints = 0;
   for (let j = 0; j < drivers.length; j++) {
